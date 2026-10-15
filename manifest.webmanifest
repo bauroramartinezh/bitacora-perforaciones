@@ -1,0 +1,16 @@
+{
+  "name": "Bitácora de Perforaciones",
+  "short_name": "Bitácora",
+  "description": "Registro de campo de perforaciones de suelo con columna estratigráfica, fotos y PDF.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF0EB",
+  "theme_color": "#1F5E57",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

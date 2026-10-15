@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bitácora de Perforaciones</title>
+<meta name="theme-color" content="#1F5E57">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bitácora">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: libreta de campo — barra superior, fichas de perforación, editor a la izquierda y hoja de registro (columna) a la derecha; barra de exportación fija abajo */
+:root{
+  --bg:#EEF0EB; --panel:#FFFFFF; --ink:#1C221F; --muted:#5E6862; --line:#D3D8D0;
+  --accent:#1F5E57; --accent-ink:#FFFFFF; --ochre:#A97A1F; --warn:#B4492B; --water:#2F6FAD;
+  --paper:#FCFCF9; --paper-ink:#262A27; --paper-line:#8A918C;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121614; --panel:#1B201D; --ink:#E6E9E4; --muted:#9BA49E; --line:#2E3531;
+  --accent:#5EB3A6; --accent-ink:#0D1412; --ochre:#D7A84C; --warn:#E3805F; --water:#74A9E0;
+  --paper:#E9EAE4; --paper-ink:#222623; --paper-line:#7C837E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121614; --panel:#1B201D; --ink:#E6E9E4; --muted:#9BA49E; --line:#2E3531;
+  --accent:#5EB3A6; --accent-ink:#0D1412; --ochre:#D7A84C; --warn:#E3805F; --water:#74A9E0;
+  --paper:#E9EAE4; --paper-ink:#222623; --paper-line:#7C837E; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;margin:0;text-wrap:balance}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:16px 4px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand h1{font-size:28px;line-height:1}
+.brand span{font-family:var(--f-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.pill{font-family:var(--f-mono);font-size:11px;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--accent);border-color:var(--accent)}
+.pill.busy{color:var(--ochre);border-color:var(--ochre)}
+.pill.local{color:var(--warn);border-color:var(--warn)}
+details.proj{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+details.proj summary{cursor:pointer;padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center;list-style:none}
+details.proj summary::-webkit-details-marker{display:none}
+details.proj summary b{font-family:var(--f-display);font-size:19px}
+details.proj summary small{color:var(--muted);font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px}
+.proj .grid{padding:0 14px 14px}
+label.f{display:flex;flex-direction:column;gap:3px;min-width:0}
+label.f>span{font-family:var(--f-display);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+input.num{font-family:var(--f-mono);font-size:14px;font-variant-numeric:tabular-nums}
+textarea{resize:vertical;min-height:58px}
+input:focus,select:focus,textarea:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.span2{grid-column:span 2}
+.full{grid-column:1/-1}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.chip{font-family:var(--f-mono);font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.add{border-style:dashed;color:var(--accent)}
+.work{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+@media (max-width:900px){.work{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.sec-h{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sec-h h2{font-size:21px}
+.sec-h .hint{font-size:12.5px;color:var(--muted)}
+.layer{border:1px solid var(--line);border-radius:8px;display:grid;grid-template-columns:44px minmax(0,1fr);overflow:hidden}
+.layer .sw{border-right:1px solid var(--line)}
+.layer .sw svg{display:block;width:100%;height:100%}
+.layer .body{padding:10px 12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.layer-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.layer-h b{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:5px}
+.x:hover{color:var(--warn)}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.row5{display:grid;grid-template-columns:70px minmax(0,1.3fr) repeat(3,minmax(0,1fr)) 30px;gap:8px;align-items:end}
+@media (max-width:560px){.row5{grid-template-columns:repeat(3,minmax(0,1fr))}.row5 .x{justify-self:end}}
+.btn{font-family:var(--f-display);font-weight:600;font-size:16px;letter-spacing:.02em;border-radius:8px;padding:9px 14px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.dash{background:transparent;color:var(--accent);border-style:dashed;width:100%}
+.btn.danger{background:transparent;color:var(--warn);border-color:var(--warn)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.sheet{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);background:var(--paper);color:var(--paper-ink);border-radius:6px;border:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 140px);overflow:auto}
+@media (max-width:900px){.sheet{position:static;max-height:none}}
+.sheet-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:2px solid var(--paper-ink);padding-bottom:6px}
+.sheet-h h3{font-size:20px}
+.sheet-h span{font-family:var(--f-mono);font-size:11px}
+.sheet svg{width:100%;height:auto;display:block}
+.warn{font-size:13px;color:var(--warn);display:flex;flex-direction:column;gap:2px}
+div.f>span{font-family:var(--f-display);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+div.f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.logos{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.logo{position:relative;background:#fff;border:1px solid var(--line);border-radius:6px;padding:6px 26px 6px 8px;height:52px;display:flex;align-items:center}
+.logo img{max-height:38px;max-width:150px;display:block}
+.logo .x{position:absolute;top:2px;right:2px;padding:2px 5px;color:#5E6862}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ph{margin:0;position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column;min-width:0}
+.ph img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--line)}
+.ph .num{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-family:var(--f-mono);font-size:11px;padding:1px 6px;border-radius:4px}
+.ph .x{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff}
+.ph input{border:none;border-top:1px solid var(--line);border-radius:0;font-size:13.5px}
+.bkp{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--panel);border:1px solid var(--ochre);border-left:4px solid var(--ochre);border-radius:8px;padding:10px 12px;font-size:14px}
+.gpsnote{font-size:12.5px;color:var(--muted)}
+.example{font-family:var(--f-mono);font-size:11px;background:var(--ochre);color:var(--accent-ink);padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em}
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:28px 18px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.empty p{margin:0;color:var(--muted);max-width:46ch}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:5}
+.bar .in{max-width:1180px;margin:0 auto;display:flex;gap:8px;overflow-x:auto}
+.dlg{position:fixed;inset:0;background:rgba(10,14,12,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
+.dlg .box{background:var(--panel);border-radius:12px;padding:18px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:14px}
+.dlg .box p{margin:0}
+.dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:14px;z-index:30;max-width:calc(100% - 32px)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11.5px}
+.legend i{display:inline-block;width:18px;height:11px;vertical-align:-2px;margin-right:4px;border:1px solid var(--paper-line)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>Bitácora de Perforaciones</h1><span>Registro de campo · columna estratigráfica · funciona sin señal</span></div>
+    <span class="pill" id="status">Cargando…</span>
+  </header>
+
+  <details class="proj" id="proj">
+    <summary><b>Datos del proyecto</b><small id="projSum"></small></summary>
+    <div class="grid">
+      <label class="f span2"><span>Empresa / consultora</span><input id="pj-empresa" data-k="pj.empresa"></label>
+      <label class="f span2"><span>Proyecto</span><input id="pj-nombre" data-k="pj.nombre"></label>
+      <label class="f"><span>Cliente</span><input id="pj-cliente" data-k="pj.cliente"></label>
+      <label class="f"><span>Ubicación</span><input id="pj-ubicacion" data-k="pj.ubicacion"></label>
+      <label class="f"><span>Sistema de coordenadas</span><input id="pj-sistema" data-k="pj.sistema"></label>
+      <label class="f"><span>Responsable</span><input id="pj-responsable" data-k="pj.responsable"></label>
+      <div class="f full"><span>Logos del informe PDF</span>
+        <div class="logos"><div id="logoList" class="logos"></div><button class="btn ghost" id="b-logo" type="button">+ Agregar logo</button></div>
+        <input type="file" id="f-logo" accept="image/png,image/jpeg,image/webp" hidden></div>
+    </div>
+  </details>
+
+  <div class="bkp" id="bkp" hidden><span></span><button class="btn" id="b-bkp2" type="button">Hacer respaldo</button></div>
+  <nav class="chips" id="chips" aria-label="Perforaciones"></nav>
+  <div id="main"></div>
+</div>
+
+<div class="bar"><div class="in">
+  <button class="btn" id="b-pdf1">PDF perforación</button>
+  <button class="btn ghost" id="b-pdfall">PDF del proyecto</button>
+  <button class="btn ghost" id="b-json">Respaldo</button>
+  <button class="btn ghost" id="b-imp">Importar</button>
+  <input type="file" id="f-imp" accept=".json,application/json" hidden>
+</div></div>
+
+<datalist id="dl-uscs"><option>GW</option><option>GP</option><option>GM</option><option>GC</option><option>SW</option><option>SP</option><option>SM</option><option>SC</option><option>ML</option><option>CL</option><option>OL</option><option>MH</option><option>CH</option><option>OH</option><option>PT</option><option>CL-ML</option><option>SM-SC</option></datalist>
+<datalist id="dl-hum"><option>Seco</option><option>Ligeramente húmedo</option><option>Húmedo</option><option>Muy húmedo</option><option>Saturado</option></datalist>
+<datalist id="dl-con"><option>Muy blanda</option><option>Blanda</option><option>Media</option><option>Firme</option><option>Muy firme</option><option>Dura</option><option>Muy suelta</option><option>Suelta</option><option>Medianamente densa</option><option>Densa</option><option>Muy densa</option></datalist>
+
+<script>
+/* ---------- Materiales y tramas ---------- */
+const MATS={
+  relleno:{n:'Relleno antrópico',u:'',f:[229,224,214]},
+  organico:{n:'Capa orgánica',u:'OL',f:[206,216,190]},
+  ceniza:{n:'Ceniza volcánica',u:'MH',f:[241,229,201]},
+  arcilla:{n:'Arcilla',u:'CL',f:[223,207,190]},
+  limo:{n:'Limo',u:'ML',f:[234,224,203]},
+  arena:{n:'Arena',u:'SM',f:[246,236,192]},
+  grava:{n:'Grava',u:'GM',f:[221,222,216]},
+  saprolito:{n:'Saprolito / roca meteorizada',u:'',f:[218,212,228]},
+  roca:{n:'Roca',u:'',f:[201,202,208]}
+};
+const TIPOS=['SPT','Shelby','Alterada','Bolsa'];
+function clip(x1,y1,x2,y2,a,b,c,d){let t0=0,t1=1;const dx=x2-x1,dy=y2-y1;const P=[-dx,dx,-dy,dy],Q=[x1-a,c-x1,y1-b,d-y1];
+  for(let i=0;i<4;i++){if(P[i]===0){if(Q[i]<0)return null}else{const r=Q[i]/P[i];if(P[i]<0){if(r>t1)return null;if(r>t0)t0=r}else{if(r<t0)return null;if(r<t1)t1=r}}}
+  return [x1+t0*dx,y1+t0*dy,x1+t1*dx,y1+t1*dy]}
+function drawPattern(g,k,x,y,w,h,s){
+  if(h<=0||w<=0)return;
+  const L=(a,b,c,d)=>{const r=clip(a,b,c,d,x,y,x+w,y+h);if(r)g.line(...r)};
+  const inR=(cx,cy,r)=>cx-r>=x&&cx+r<=x+w&&cy-r>=y&&cy+r<=y+h;
+  let i=0;
+  switch(k){
+  case'arcilla':for(let yy=y+s*.45;yy<y+h;yy+=s*.6)L(x,yy,x+w,yy);break;
+  case'limo':for(let yy=y+s*.4;yy<y+h;yy+=s*.7,i++){for(let xx=x+(i%2)*s*.6;xx<x+w;xx+=s*1.2)L(xx,yy,xx+s*.6,yy)}break;
+  case'arena':for(let yy=y+s*.3;yy<y+h;yy+=s*.55,i++){for(let xx=x+s*.25+(i%2)*s*.3;xx<x+w;xx+=s*.6)if(inR(xx,yy,s*.07))g.dot(xx,yy,s*.075)}break;
+  case'grava':{const r=s*.36;for(let yy=y+s*.6;yy<y+h;yy+=s*1.1,i++){for(let xx=x+s*.6+(i%2)*s*.65;xx<x+w;xx+=s*1.3)if(inR(xx,yy,r))g.circ(xx,yy,r)}
+    if(h<s*1.2)for(let xx=x+s*.4;xx<x+w;xx+=s*.8)if(inR(xx,y+h/2,s*.08))g.dot(xx,y+h/2,s*.08);break}
+  case'relleno':for(let k2=-h;k2<w;k2+=s*.9){L(x+k2,y+h,x+k2+h,y);L(x+k2,y,x+k2+h,y+h)}break;
+  case'organico':for(let yy=y+s*.75;yy<y+h;yy+=s*.9,i++){for(let xx=x+s*.5+(i%2)*s*.7;xx<x+w-s*.3;xx+=s*1.4){if(yy-s*.3<y)continue;
+    L(xx-s*.3,yy,xx+s*.3,yy);L(xx,yy,xx,yy-s*.32);L(xx-s*.15,yy,xx-s*.3,yy-s*.25);L(xx+s*.15,yy,xx+s*.3,yy-s*.25)}}break;
+  case'ceniza':for(let yy=y+s*.55;yy<y+h;yy+=s*.8,i++){for(let xx=x+s*.4+(i%2)*s*.5;xx<x+w-s*.2;xx+=s*1.0){if(yy-s*.2<y)continue;L(xx-s*.2,yy-s*.2,xx,yy+s*.12);L(xx,yy+s*.12,xx+s*.2,yy-s*.2)}}break;
+  case'saprolito':for(let k2=-h;k2<w;k2+=s*1.1)L(x+k2,y+h,x+k2+h,y);
+    for(let yy=y+s*.6;yy<y+h;yy+=s*1.1,i++)for(let xx=x+s*.6+(i%2)*s*.55;xx<x+w;xx+=s*1.1)if(inR(xx,yy,s*.07))g.dot(xx,yy,s*.075);break;
+  case'roca':{const bh=s*.9;for(let yy=y+bh;yy<y+h;yy+=bh)L(x,yy,x+w,yy);
+    for(let yy=y;yy<y+h;yy+=bh,i++)for(let xx=x+(i%2)*s*.8;xx<x+w;xx+=s*1.6)if(xx>x)L(xx,yy,xx,Math.min(yy+bh,y+h));break}
+  }
+}
+const rgb=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
+function svgG(){const o=[];return{o,line:(a,b,c,d)=>o.push(`<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c.toFixed(1)}" y2="${d.toFixed(1)}"/>`),
+  dot:(x,y,r)=>o.push(`<circle class="d" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}"/>`),
+  circ:(x,y,r)=>o.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}"/>`)}}
+function swatchSVG(k,w,h){const g=svgG();drawPattern(g,k,0,0,w,h,9);
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><rect width="${w}" height="${h}" fill="${rgb((MATS[k]||MATS.limo).f)}"/><g stroke="#3d423f" stroke-width=".8" fill="none">${g.o.join('')}</g><style>.d{fill:#3d423f;stroke:none}</style></svg>`}
+
+/* ---------- Estado ---------- */
+const uid=()=>Math.random().toString(36).slice(2,9);
+const n=v=>{if(v===null||v===undefined||v==='')return NaN;return parseFloat(String(v).replace(',','.'))};
+const f2=v=>isNaN(n(v))?'—':n(v).toFixed(2);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S={pj:{empresa:'',nombre:'',cliente:'',ubicacion:'',sistema:'MAGNA-SIRGAS / Origen Nacional',responsable:''},perfs:[],updatedAt:0};
+let cur=null;
+function ejemplo(){return{ejemplo:true,pj:{empresa:'Consultora de ejemplo',nombre:'Estudio de suelos — Lote La Esperanza',cliente:'Cliente de ejemplo',ubicacion:'Vereda El Ejemplo',sistema:'MAGNA-SIRGAS / Origen Nacional',responsable:'Ing. responsable'},
+ perfs:[
+ {id:uid(),codigo:'P-1',fecha:'2026-10-12',norte:'2054310.25',este:'4722180.40',cota:'1450.20',metodo:'Barreno manual + SPT',nf:'3.20',prof:'5.00',responsable:'',obs:'Perforación detenida por rechazo del barreno en arena densa.',
+  estratos:[
+   {id:uid(),desde:'0',hasta:'0.30',mat:'organico',uscs:'OL',desc:'Suelo orgánico limoso con raíces',color:'Café oscuro 10YR 3/2',hum:'Húmedo',con:'Blanda'},
+   {id:uid(),desde:'0.30',hasta:'1.80',mat:'ceniza',uscs:'MH',desc:'Limo arenoso de origen volcánico',color:'Amarillo pardo 10YR 5/6',hum:'Húmedo',con:'Firme'},
+   {id:uid(),desde:'1.80',hasta:'3.50',mat:'arcilla',uscs:'CL',desc:'Arcilla limosa con vetas de óxidos',color:'Café rojizo 5YR 4/4',hum:'Muy húmedo',con:'Media'},
+   {id:uid(),desde:'3.50',hasta:'5.00',mat:'arena',uscs:'SM',desc:'Arena limosa con gravas finas',color:'Gris',hum:'Saturado',con:'Medianamente densa'}],
+  muestras:[{id:uid(),codigo:'M-1',tipo:'SPT',desde:'1.00',hasta:'1.45',N:'9'},{id:uid(),codigo:'M-2',tipo:'Shelby',desde:'2.00',hasta:'2.60',N:''},{id:uid(),codigo:'M-3',tipo:'SPT',desde:'4.00',hasta:'4.45',N:'18'}]},
+ {id:uid(),codigo:'P-2',fecha:'2026-10-13',norte:'2054352.10',este:'4722215.75',cota:'1452.80',metodo:'Barreno manual',nf:'',prof:'4.00',responsable:'',obs:'',
+  estratos:[
+   {id:uid(),desde:'0',hasta:'0.60',mat:'relleno',uscs:'',desc:'Relleno heterogéneo con escombros de ladrillo',color:'Café grisáceo',hum:'Ligeramente húmedo',con:'Suelta'},
+   {id:uid(),desde:'0.60',hasta:'2.20',mat:'ceniza',uscs:'MH',desc:'Limo de ceniza volcánica',color:'Amarillo pardo 10YR 5/6',hum:'Húmedo',con:'Firme'},
+   {id:uid(),desde:'2.20',hasta:'4.00',mat:'grava',uscs:'GM',desc:'Grava arenosa en matriz limosa, cantos subredondeados',color:'Gris verdoso',hum:'Húmedo',con:'Densa'}],
+  muestras:[{id:uid(),codigo:'M-1',tipo:'Alterada',desde:'1.00',hasta:'1.30',N:''}]}],updatedAt:Date.now()}}
+const P=()=>S.perfs.find(p=>p.id===cur);
+const profOf=p=>{const a=n(p.prof);const m=Math.max(0,...p.estratos.map(e=>n(e.hasta)||0));return isNaN(a)?(m||1):Math.max(a,m)||1};
+function descOf(e){const m=MATS[e.mat];return[e.desc||(m?m.n:''),e.color&&('color '+e.color),e.hum&&e.hum.toLowerCase(),e.con&&('consistencia/compacidad '+e.con.toLowerCase())].filter(Boolean).join('; ')+'.'}
+function warnings(p){const w=[];const es=[...p.estratos].sort((a,b)=>n(a.desde)-n(b.desde));
+  es.forEach((e,i)=>{const d=n(e.desde),h=n(e.hasta);if(isNaN(d)||isNaN(h))w.push(`Estrato ${i+1}: falta profundidad inicial o final.`);else if(h<=d)w.push(`Estrato ${i+1}: la profundidad final debe ser mayor que la inicial.`);
+   if(i>0){const ph=n(es[i-1].hasta);if(!isNaN(ph)&&!isNaN(d)&&Math.abs(ph-d)>0.001)w.push(`Entre estrato ${i} y ${i+1}: ${ph<d?'hay un vacío':'hay traslape'} (${ph.toFixed(2)} m / ${d.toFixed(2)} m).`)}});
+  if(es.length&&n(es[0].desde)>0)w.push('El primer estrato no empieza en 0.00 m.');
+  const nf=n(p.nf);if(!isNaN(nf)&&nf>profOf(p))w.push('El nivel freático está por debajo de la profundidad total.');
+  return w}
+
+/* ---------- Coordenadas: WGS84/MAGNA (lat, long) → Origen Nacional CTM12, EPSG:9377 ---------- */
+function parseLL(s){if(!s)return null;s=String(s).trim();
+  const dms=[...s.matchAll(/(\d+(?:[.,]\d+)?)\s*°\s*(?:(\d+(?:[.,]\d+)?)\s*['′]\s*)?(?:(\d+(?:[.,]\d+)?)\s*["″]\s*)?([NSEWO])?/gi)];
+  if(dms.length>=2){const v=dms.slice(0,2).map(m=>{let d=n(m[1])+(n(m[2])||0)/60+(n(m[3])||0)/3600;const h=(m[4]||'').toUpperCase();if(h==='S'||h==='W'||h==='O')d=-d;return{d,h}});
+    let lat=v[0].d,lon=v[1].d;if(v[0].h==='E'||v[0].h==='W'||v[0].h==='O'){[lat,lon]=[lon,lat]}if(!v[1].h&&!v[0].h&&lon>0)lon=-lon;return ok(lat,lon)}
+  const nums=s.match(/-?\d+(?:\.\d+)?/g);if(!nums||nums.length<2)return null;return ok(parseFloat(nums[0]),parseFloat(nums[1]));
+  function ok(a,b){if(Math.abs(a)>90||Math.abs(b)>180)return null;if(Math.abs(a)>Math.abs(b)&&Math.abs(a)>20)[a,b]=[b,a];return[a,b]}}
+function toCTM12(lat,lon){const a=6378137,f=1/298.257222101,e2=2*f-f*f,ep2=e2/(1-e2),k0=0.9992,R=Math.PI/180;
+  const M=p=>a*((1-e2/4-3*e2*e2/64-5*e2**3/256)*p-(3*e2/8+3*e2*e2/32+45*e2**3/1024)*Math.sin(2*p)+(15*e2*e2/256+45*e2**3/1024)*Math.sin(4*p)-(35*e2**3/3072)*Math.sin(6*p));
+  const p=lat*R,l=lon*R,p0=4*R,l0=-73*R;const N=a/Math.sqrt(1-e2*Math.sin(p)**2),T=Math.tan(p)**2,C=ep2*Math.cos(p)**2,A=(l-l0)*Math.cos(p);
+  const x=k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120);
+  const y=k0*(M(p)-M(p0)+N*Math.tan(p)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  return{E:5000000+x,N:2000000+y}}
+function gpsNote(v){if(!v)return'Toca el botón de arriba, o pega aquí la ubicación copiada de Google Maps. Norte y Este se calculan solos.';const ll=parseLL(v);
+  return ll?`Lat ${ll[0].toFixed(6)}, Long ${ll[1].toFixed(6)} → convertido a MAGNA-SIRGAS Origen Nacional (CTM12).`:'No reconozco ese formato. Usa latitud y longitud, por ejemplo 4.81333, -75.69611.'}
+
+/* ---------- Guardado (en este celular) ---------- */
+let saveT=null;
+function setStatus(t,c){const el=document.getElementById('status');el.textContent=t;el.className='pill '+(c||'')}
+function saveLocal(){try{localStorage.setItem('bitacora-perf',JSON.stringify(S));return true}catch(e){return false}}
+function save(){S.updatedAt=Date.now();if(S.ejemplo)S.ejemplo=false;clearTimeout(saveT);setStatus('Guardando…','busy');
+  saveT=setTimeout(()=>{saveLocal()?setStatus('Guardado en este celular','ok'):setStatus('No se pudo guardar: memoria llena','local');checkBackup()},400)}
+function checkBackup(){const b=document.getElementById('bkp');if(!b)return;const has=S.perfs.length&&!S.ejemplo;const last=S.lastBackup||0;const days=(Date.now()-last)/864e5;
+  b.hidden=!(has&&S.updatedAt>last&&days>2);b.querySelector('span').textContent=last?`Tu último respaldo fue hace ${Math.floor(days)} días.`:'Aún no has hecho un respaldo.'}
+function boot(){let local=null;try{local=JSON.parse(localStorage.getItem('bitacora-perf')||'null')}catch(e){}
+  if(local&&local.perfs)S=local;S.pj.logos=S.pj.logos||[];renderAll();setStatus(local?'Guardado en este celular':'Listo','ok');checkBackup();
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}
+
+/* ---------- Fotos en IndexedDB ---------- */
+const idb=new Promise((res,rej)=>{const r=indexedDB.open('bitacora-fotos',1);r.onupgradeneeded=()=>r.result.createObjectStore('fotos');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+async function idbDo(mode,fn){const d=await idb;return new Promise((res,rej)=>{const tx=d.transaction('fotos',mode);const st=tx.objectStore('fotos');const q=fn(st);tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error)})}
+const putFoto=(k,blob)=>idbDo('readwrite',st=>st.put(blob,k));
+const getFoto=k=>idbDo('readonly',st=>st.get(k));
+const delFoto=k=>idbDo('readwrite',st=>st.delete(k));
+const urlCache={};
+async function fotoURL(k){if(urlCache[k])return urlCache[k];const b=await getFoto(k);if(!b)throw new Error('sin foto');return urlCache[k]=URL.createObjectURL(b)}
+function hydratePhotos(){document.querySelectorAll('img[data-asset]').forEach(async im=>{try{im.src=await fotoURL(im.dataset.asset)}catch(e){im.style.opacity=.2}})}
+const blobToData=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b)});
+
+/* ---------- Render ---------- */
+function renderAll(){if(!S.perfs.find(p=>p.id===cur))cur=S.perfs[0]?.id||null;renderProj();renderChips();renderMain()}
+function renderLogos(){const L=S.pj.logos||[];document.getElementById('logoList').innerHTML=L.map((l,i)=>`<div class="logo"><img src="${l.data}" alt="Logo ${i+1}"><button class="x" type="button" data-del-logo="${i}" aria-label="Quitar logo ${i+1}">✕</button></div>`).join('');
+  document.getElementById('b-logo').hidden=L.length>=3}
+function renderProj(){renderLogos();for(const k of Object.keys(S.pj)){if(k==='logos')continue;const el=document.getElementById('pj-'+k);if(el)el.value=S.pj[k]||''}
+  document.getElementById('projSum').textContent=[S.pj.nombre,S.pj.ubicacion].filter(Boolean).join(' · ')||'Sin nombre'}
+function renderChips(){const c=document.getElementById('chips');
+  c.innerHTML=S.perfs.map(p=>`<button class="chip" data-sel="${p.id}" aria-pressed="${p.id===cur}">${esc(p.codigo||'Sin código')}</button>`).join('')+`<button class="chip add" id="b-add">+ Perforación</button>`}
+function inp(id,k,v,lab,cls='',extra=''){return`<label class="f ${cls}"><span>${lab}</span><input id="${id}" data-k="${k}" value="${esc(v)}" ${extra}></label>`}
+const numA='class="num" inputmode="decimal" autocomplete="off"';
+function renderMain(){const m=document.getElementById('main');const p=P();
+  if(!p){m.innerHTML=`<div class="empty"><h2>Aún no hay perforaciones</h2><p>Registra cada sondeo con sus estratos y muestras. La columna estratigráfica se dibuja sola mientras escribes y puedes exportarla a PDF.</p>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="b-add2">Nueva perforación</button><button class="btn ghost" id="b-ej">Cargar ejemplo</button></div></div>`;renderBar();return}
+  const mOpts=k=>Object.entries(MATS).map(([key,v])=>`<option value="${key}" ${key===k?'selected':''}>${v.n}</option>`).join('');
+  const est=p.estratos.map((e,i)=>`<div class="layer" id="ly-${e.id}"><div class="sw" id="sw-${e.id}">${swatchSVG(e.mat,44,120)}</div><div class="body">
+    <div class="layer-h"><b id="eh-${e.id}">Estrato ${i+1} · ${f2(e.desde)}–${f2(e.hasta)} m</b><button class="x" data-del-e="${e.id}" aria-label="Eliminar estrato ${i+1}">Eliminar</button></div>
+    <div class="row3">${inp('e-'+e.id+'-desde','e.'+e.id+'.desde',e.desde,'Desde (m)','',numA)}${inp('e-'+e.id+'-hasta','e.'+e.id+'.hasta',e.hasta,'Hasta (m)','',numA)}${inp('e-'+e.id+'-uscs','e.'+e.id+'.uscs',e.uscs,'USCS','','list="dl-uscs" autocomplete="off"')}</div>
+    <label class="f"><span>Material (trama)</span><select id="e-${e.id}-mat" data-k="e.${e.id}.mat">${mOpts(e.mat)}</select></label>
+    <label class="f"><span>Descripción</span><textarea id="e-${e.id}-desc" data-k="e.${e.id}.desc" rows="2">${esc(e.desc)}</textarea></label>
+    <div class="row3">${inp('e-'+e.id+'-color','e.'+e.id+'.color',e.color,'Color (Munsell)')}${inp('e-'+e.id+'-hum','e.'+e.id+'.hum',e.hum,'Humedad','','list="dl-hum" autocomplete="off"')}${inp('e-'+e.id+'-con','e.'+e.id+'.con',e.con,'Consistencia','','list="dl-con" autocomplete="off"')}</div>
+  </div></div>`).join('');
+  const mu=p.muestras.map(s=>`<div class="row5">${inp('m-'+s.id+'-codigo','m.'+s.id+'.codigo',s.codigo,'Código')}
+    <label class="f"><span>Tipo</span><select id="m-${s.id}-tipo" data-k="m.${s.id}.tipo">${TIPOS.map(t=>`<option ${t===s.tipo?'selected':''}>${t}</option>`).join('')}</select></label>
+    ${inp('m-'+s.id+'-desde','m.'+s.id+'.desde',s.desde,'Desde','',numA)}${inp('m-'+s.id+'-hasta','m.'+s.id+'.hasta',s.hasta,'Hasta','',numA)}${inp('m-'+s.id+'-N','m.'+s.id+'.N',s.N,'N SPT','',numA)}
+    <button class="x" data-del-m="${s.id}" aria-label="Eliminar muestra">✕</button></div>`).join('');
+  m.innerHTML=`<div class="work"><div class="card" style="gap:18px">
+    <div class="sec-h"><h2>Perforación ${esc(p.codigo)}</h2>${S.ejemplo?'<span class="example">Datos de ejemplo</span>':''}</div>
+    <div class="grid">${inp('p-codigo','p.codigo',p.codigo,'Código')}${inp('p-fecha','p.fecha',p.fecha,'Fecha','','type="date"')}${inp('p-norte','p.norte',p.norte,'Norte (m)','',numA)}${inp('p-este','p.este',p.este,'Este (m)','',numA)}
+      <div class="full"><button class="btn ghost" id="b-gps" type="button" style="width:100%">📍 Tomar coordenadas con el GPS</button></div>
+      <label class="f full"><span>Coordenadas GPS (lat, long)${p.precision?` · precisión ±${p.precision} m`:''}</span><input id="p-gps" data-k="p.gps" value="${esc(p.gps||'')}" placeholder="Ej. 4.81333, -75.69611  o  4°48'48&quot;N 75°41'46&quot;W" autocomplete="off"><small class="gpsnote" id="gpsnote">${gpsNote(p.gps)}</small></label>
+      ${inp('p-cota','p.cota',p.cota,'Cota (m.s.n.m.)','',numA)}${inp('p-prof','p.prof',p.prof,'Prof. total (m)','',numA+' placeholder="auto"')}${inp('p-nf','p.nf',p.nf,'Nivel freático (m)','',numA+' placeholder="No encontrado"')}${inp('p-metodo','p.metodo',p.metodo,'Método')}
+      ${inp('p-responsable','p.responsable',p.responsable,'Responsable','span2','placeholder="'+esc(S.pj.responsable||'')+'"')}
+      <label class="f full"><span>Observaciones</span><textarea id="p-obs" data-k="p.obs" rows="2">${esc(p.obs)}</textarea></label></div>
+    <div class="sec-h"><h2>Estratos</h2><span class="hint">de arriba hacia abajo</span></div>
+    <div style="display:flex;flex-direction:column;gap:10px">${est}<button class="btn dash" id="b-addE">+ Agregar estrato</button></div>
+    <div class="sec-h"><h2>Muestras</h2><span class="hint">SPT, Shelby, alteradas</span></div>
+    <div style="display:flex;flex-direction:column;gap:10px">${mu}<button class="btn dash" id="b-addM">+ Agregar muestra</button></div>
+    <div class="sec-h"><h2>Registro fotográfico</h2><span class="hint">${(p.fotos||[]).length} fotos · salen en el PDF</span></div>
+    <div style="display:flex;flex-direction:column;gap:10px">${(p.fotos||[]).length?`<div class="photos">${(p.fotos||[]).map((f,i)=>`<figure class="ph"><img data-asset="${esc(f.asset)}" alt="Foto ${i+1} de ${esc(p.codigo)}"><span class="num">Foto ${i+1}</span><button class="x" data-del-f="${f.id}" aria-label="Eliminar foto ${i+1}">✕</button><input id="f-${f.id}-cap" data-k="f.${f.id}.cap" value="${esc(f.cap)}" placeholder="Descripción de la foto"></figure>`).join('')}</div>`:''}
+      <button class="btn dash" id="b-addF">+ Agregar fotos</button><input type="file" id="f-foto" accept="image/*" multiple hidden></div>
+    <div><button class="btn danger" id="b-delP">Eliminar perforación ${esc(p.codigo)}</button></div>
+  </div>
+  <aside class="sheet" aria-label="Columna estratigráfica"><div class="sheet-h"><h3 id="sh-t">Columna ${esc(p.codigo)}</h3><span id="sh-s"></span></div><div id="svgbox"></div><div class="warn" id="warn"></div><div class="legend" id="leg"></div></aside></div>`;
+  renderPreview();renderBar();hydratePhotos()}
+function renderBar(){const has=!!P();document.getElementById('b-pdf1').disabled=!has;document.getElementById('b-pdfall').disabled=!S.perfs.length;document.getElementById('b-json').disabled=!S.perfs.length}
+function wrapTxt(t,max){const w=t.split(/\s+/);const L=[];let c='';for(const x of w){if((c+' '+x).trim().length>max){if(c)L.push(c);c=x}else c=(c+' '+x).trim()}if(c)L.push(c);return L}
+function renderPreview(){const p=P();if(!p)return;const prof=profOf(p);const pxm=prof>12?32:prof>6?44:60;const top=30,W=360,H=top+prof*pxm+28;
+  const X={ax:0,col:32,colW:58,u:92,uW:34,m:128,mW:44,d:174,dW:186};const g=svgG();const o=[];
+  o.push(`<g font-family="JetBrains Mono,monospace" font-size="9" fill="currentColor">`);
+  o.push(`<text x="2" y="${top-10}">m</text><text x="${X.col+2}" y="${top-10}">Columna</text><text x="${X.u+2}" y="${top-10}">USCS</text><text x="${X.m+2}" y="${top-10}">Muestra</text><text x="${X.d+3}" y="${top-10}">Descripción</text></g>`);
+  const es=[...p.estratos].sort((a,b)=>n(a.desde)-n(b.desde));
+  for(const e of es){const d=n(e.desde),h=n(e.hasta);if(isNaN(d)||isNaN(h)||h<=d)continue;const y1=top+d*pxm,y2=top+h*pxm,m=MATS[e.mat]||MATS.limo;
+    o.push(`<rect x="${X.col}" y="${y1}" width="${X.colW}" height="${y2-y1}" fill="${rgb(m.f)}"/>`);const gg=svgG();drawPattern(gg,e.mat,X.col,y1,X.colW,y2-y1,9);
+    o.push(`<g stroke="#3d423f" stroke-width=".7" fill="none">${gg.o.join('')}</g>`);
+    o.push(`<line x1="${X.col}" y1="${y2}" x2="${W}" y2="${y2}" stroke="var(--paper-line)" stroke-width=".8"/>`);
+    o.push(`<text x="${X.u+X.uW/2}" y="${(y1+y2)/2+3}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" font-weight="600" fill="currentColor">${esc(e.uscs||'—')}</text>`);
+    const lines=wrapTxt(descOf(e),34);const maxL=Math.max(1,Math.floor((y2-y1-4)/11));const sh=lines.slice(0,maxL);if(lines.length>maxL)sh[maxL-1]=sh[maxL-1].replace(/.{0,2}$/,'…');
+    sh.forEach((l,i)=>o.push(`<text x="${X.d+3}" y="${y1+11+i*11}" font-size="9.5" fill="currentColor">${esc(l)}</text>`))}
+  // eje
+  const step=prof>12?2:prof>4?1:0.5;
+  for(let z=0;z<=prof+1e-6;z+=step/2){const y=top+z*pxm;const maj=Math.abs(z/step-Math.round(z/step))<1e-6;o.push(`<line x1="${X.col-(maj?7:4)}" y1="${y}" x2="${X.col}" y2="${y}" stroke="currentColor" stroke-width=".7"/>`);
+    if(maj)o.push(`<text x="${X.col-9}" y="${y+3}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="currentColor">${z.toFixed(step<1?1:0)}</text>`)}
+  for(const s of p.muestras){const d=n(s.desde);if(isNaN(d))continue;let h=n(s.hasta);if(isNaN(h)||h<=d)h=d+0.15;const y1=top+d*pxm,y2=top+h*pxm,x=X.m+3,w=7;
+    if(s.tipo==='Shelby')o.push(`<rect x="${x}" y="${y1}" width="${w}" height="${y2-y1}" fill="currentColor"/>`);
+    else{o.push(`<rect x="${x}" y="${y1}" width="${w}" height="${y2-y1}" fill="none" stroke="currentColor" stroke-width=".9"/>`);if(s.tipo==='SPT')o.push(`<line x1="${x}" y1="${y1}" x2="${x+w}" y2="${y2}" stroke="currentColor" stroke-width=".8"/><line x1="${x+w}" y1="${y1}" x2="${x}" y2="${y2}" stroke="currentColor" stroke-width=".8"/>`)}
+    o.push(`<text x="${x+w+3}" y="${(y1+y2)/2+3}" font-family="JetBrains Mono,monospace" font-size="8.5" fill="currentColor">${esc(s.codigo)}${s.N!==''&&s.N!=null&&!isNaN(n(s.N))?' N='+n(s.N):''}</text>`)}
+  o.push(`<rect x="${X.col}" y="${top}" width="${W-X.col}" height="${prof*pxm}" fill="none" stroke="currentColor" stroke-width="1"/>`);
+  [X.u,X.m,X.d].forEach(x=>o.push(`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+prof*pxm}" stroke="var(--paper-line)" stroke-width=".8"/>`));
+  const nf=n(p.nf);if(!isNaN(nf)&&nf<=prof){const y=top+nf*pxm,cx=X.col+X.colW/2;o.push(`<line x1="${X.col}" y1="${y}" x2="${W}" y2="${y}" stroke="var(--water)" stroke-width="1.2" stroke-dasharray="4 3"/><path d="M${cx-6} ${y-10}L${cx+6} ${y-10}L${cx} ${y}Z" fill="var(--water)"/><text x="${W-3}" y="${y-3}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--water)">NF ${nf.toFixed(2)} m</text>`)}
+  o.push(`<text x="${X.d+3}" y="${top+prof*pxm+16}" font-family="JetBrains Mono,monospace" font-size="9" fill="currentColor">Fin de la perforación: ${prof.toFixed(2)} m</text>`);
+  document.getElementById('svgbox').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Columna estratigráfica de ${esc(p.codigo)}"><style>.d{fill:#3d423f;stroke:none}</style>${o.join('')}</svg>`;
+  document.getElementById('sh-t').textContent='Columna '+(p.codigo||'');
+  document.getElementById('sh-s').textContent=`${prof.toFixed(2)} m · ${p.estratos.length} estratos`;
+  document.getElementById('warn').innerHTML=warnings(p).map(w=>`<span>⚠ ${esc(w)}</span>`).join('');
+  const used=[...new Set(p.estratos.map(e=>e.mat))];document.getElementById('leg').innerHTML=used.map(k=>`<span><i style="background:${rgb(MATS[k].f)}"></i>${MATS[k].n}</span>`).join('')}
+
+/* ---------- Eventos ---------- */
+document.addEventListener('input',ev=>{const k=ev.target.dataset&&ev.target.dataset.k;if(!k)return;const v=ev.target.value;const [t,a,b]=k.split('.');
+  if(t==='pj'){S.pj[a]=v;document.getElementById('projSum').textContent=[S.pj.nombre,S.pj.ubicacion].filter(Boolean).join(' · ')||'Sin nombre';if(P())renderPreview();save();return}
+  const p=P();if(!p)return;
+  if(t==='p'&&a==='gps'){p.gps=v;p.precision=null;const ll=parseLL(v);if(ll){const r=toCTM12(ll[0],ll[1]);p.norte=r.N.toFixed(2);p.este=r.E.toFixed(2);
+    document.getElementById('p-norte').value=p.norte;document.getElementById('p-este').value=p.este}document.getElementById('gpsnote').textContent=gpsNote(v);save();return}
+  if(t==='p'){p[a]=v;if(a==='codigo'){renderChips();document.querySelector('.card .sec-h h2').textContent='Perforación '+v;document.getElementById('b-delP').textContent='Eliminar perforación '+v}}
+  if(t==='e'){const e=p.estratos.find(x=>x.id===a);if(!e)return;e[b]=v;const i=p.estratos.indexOf(e);document.getElementById('eh-'+a).textContent=`Estrato ${i+1} · ${f2(e.desde)}–${f2(e.hasta)} m`;
+    if(b==='mat'){document.getElementById('sw-'+a).innerHTML=swatchSVG(v,44,120);const u=document.getElementById('e-'+a+'-uscs');if(!e.uscs&&MATS[v].u){e.uscs=MATS[v].u;u.value=e.uscs}}}
+  if(t==='m'){const s=p.muestras.find(x=>x.id===a);if(s)s[b]=v}
+  if(t==='f'){const fo=(p.fotos||[]).find(x=>x.id===a);if(fo)fo[b]=v;save();return}
+  renderPreview();save()});
+document.addEventListener('change',ev=>{if(ev.target.tagName==='SELECT')return;});
+document.addEventListener('click',ev=>{const t=ev.target.closest('button');if(!t)return;
+  if(t.dataset.sel){cur=t.dataset.sel;renderChips();renderMain();return}
+  if(t.id==='b-logo'){document.getElementById('f-logo').click();return}
+  if(t.id==='b-addF'){document.getElementById('f-foto').click();return}
+  if(t.dataset.delF){const fo=(P().fotos||[]).find(x=>x.id===t.dataset.delF);ask('¿Eliminar esta foto del registro?','Eliminar',async()=>{const p=P();p.fotos=p.fotos.filter(x=>x!==fo);renderMain();save();
+    try{if(fo)await delFoto(fo.asset)}catch(e){}});return}
+  if(t.dataset.delLogo!==undefined){S.pj.logos.splice(+t.dataset.delLogo,1);renderLogos();save();return}
+  const p=P();
+  switch(t.id){
+  case'b-add':case'b-add2':{const num=S.perfs.length+1;const np={id:uid(),codigo:'P-'+num,fecha:new Date().toISOString().slice(0,10),norte:'',este:'',cota:'',metodo:p?p.metodo:'',nf:'',prof:'',responsable:'',obs:'',
+     estratos:[{id:uid(),desde:'0',hasta:'0.30',mat:'organico',uscs:'OL',desc:'',color:'',hum:'',con:''}],muestras:[]};S.perfs.push(np);cur=np.id;renderChips();renderMain();save();return}
+  case'b-ej':S=ejemplo();cur=null;renderAll();saveLocal();if(ref)save();return;
+  case'b-addE':{const last=p.estratos[p.estratos.length-1];const d=last?last.hasta:'0';const h=isNaN(n(d))?'':(n(d)+0.5).toFixed(2);
+     p.estratos.push({id:uid(),desde:d,hasta:h,mat:last?last.mat:'limo',uscs:last?last.uscs:'',desc:'',color:'',hum:last?last.hum:'',con:''});renderMain();save();
+     const ly=document.getElementById('ly-'+p.estratos[p.estratos.length-1].id);ly&&ly.scrollIntoView({block:'center'});return}
+  case'b-addM':p.muestras.push({id:uid(),codigo:'M-'+(p.muestras.length+1),tipo:'SPT',desde:'',hasta:'',N:''});renderMain();save();return;
+  case'b-delP':ask(`¿Eliminar la perforación ${p.codigo} con sus estratos y muestras?`,'Eliminar',()=>{S.perfs=S.perfs.filter(x=>x.id!==p.id);cur=null;renderAll();save()});return;
+  case'b-pdf1':exportPdf([p],`Perforacion_${(p.codigo||'').replace(/[^\w-]+/g,'_')}.pdf`,false);return;
+  case'b-pdfall':exportPdf(S.perfs,`Perforaciones_${(S.pj.nombre||'proyecto').replace(/[^\wÁÉÍÓÚáéíóúñÑ-]+/g,'_').slice(0,60)}.pdf`,true);return;
+  case'b-json':case'b-bkp2':backup();return;
+  case'b-gps':gpsNow();return;
+  case'b-imp':document.getElementById('f-imp').click();return}
+  if(t.dataset.delE){const e=p.estratos.find(x=>x.id===t.dataset.delE);ask('¿Eliminar este estrato?','Eliminar',()=>{p.estratos=p.estratos.filter(x=>x!==e);renderMain();save()});return}
+  if(t.dataset.delM){p.muestras=p.muestras.filter(x=>x.id!==t.dataset.delM);renderMain();save()}});
+document.getElementById('f-imp').addEventListener('change',ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.perfs))throw 0;
+   ask(`El respaldo tiene ${d.perfs.length} perforaciones y reemplaza los datos actuales.`,'Reemplazar',async()=>{const fotos=d.fotos||{};delete d.fotos;
+     for(const [k,v] of Object.entries(fotos)){try{const b=await (await fetch(v)).blob();await putFoto(k,b)}catch(e){}}
+     S=d;S.ejemplo=false;S.pj.logos=S.pj.logos||[];cur=null;renderAll();save();toast('Respaldo importado')})}
+  catch(e){toast('Ese archivo no es un respaldo de esta bitácora')}ev.target.value=''};r.readAsText(f)});
+document.getElementById('f-logo').addEventListener('change',ev=>{const f=ev.target.files[0];ev.target.value='';if(!f)return;const url=URL.createObjectURL(f);const img=new Image();
+  img.onload=()=>{const sc=Math.min(1,180/img.height,640/img.width);const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);S.pj.logos=S.pj.logos||[];S.pj.logos.push({data:c.toDataURL('image/png'),w:c.width,h:c.height});renderLogos();save();toast('Logo agregado al informe')};
+  img.onerror=()=>{URL.revokeObjectURL(url);toast('No pude leer esa imagen. Usa PNG o JPG.')};img.src=url});
+function loadImage(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src})}
+async function shrink(src,max,q){const img=await loadImage(src);const sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);return c}
+document.addEventListener('change',async ev=>{if(ev.target.id!=='f-foto')return;const files=[...ev.target.files];ev.target.value='';if(!files.length)return;const p=P();if(!p)return;
+  p.fotos=p.fotos||[];let okN=0;
+  for(let i=0;i<files.length;i++){toast(`Guardando foto ${i+1} de ${files.length}…`);const url=URL.createObjectURL(files[i]);
+    try{const c=await shrink(url,1600);const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.82));const key='f'+uid()+uid();await putFoto(key,blob);
+      p.fotos.push({id:uid(),asset:key,cap:'',fecha:new Date().toISOString().slice(0,10)});okN++;save()}
+    catch(e){toast('No se pudo guardar la foto '+(i+1)+'. Revisa el espacio del celular.')}finally{URL.revokeObjectURL(url)}}
+  if(P()===p)renderMain();if(okN)toast(okN===1?'Foto agregada':`${okN} fotos agregadas`)});
+function ask(msg,ok,fn){const d=document.createElement('div');d.className='dlg';d.innerHTML=`<div class="box" role="dialog" aria-modal="true"><p>${esc(msg)}</p><div class="acts"><button class="btn ghost" data-c>Cancelar</button><button class="btn danger" data-o>${esc(ok)}</button></div></div>`;
+  document.body.appendChild(d);d.querySelector('[data-c]').focus();d.addEventListener('click',e=>{if(e.target===d||e.target.hasAttribute('data-c'))d.remove();if(e.target.hasAttribute('data-o')){d.remove();fn()}})}
+let toastT;function toast(t){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el)}el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,3200)}
+async function saveFile(name,data,mime){const blob=data instanceof Blob?data:new Blob([data],{type:mime||'application/octet-stream'});
+  const file=new File([blob],name,{type:blob.type});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})&&/Android|iPhone|iPad/i.test(navigator.userAgent)&&shareMode){await navigator.share({files:[file],title:name});return true}}catch(e){if(e&&e.name==='AbortError')return false}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);toast('Descargado: '+name);return true}
+let shareMode=false;
+async function backup(){toast('Preparando respaldo…');const out=JSON.parse(JSON.stringify(S));out.fotos={};
+  for(const p of S.perfs)for(const fo of (p.fotos||[])){try{const b=await getFoto(fo.asset);if(b)out.fotos[fo.asset]=await blobToData(b)}catch(e){}}
+  const ok=await saveFile(`Respaldo_perforaciones_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(out),'application/json');
+  if(ok){S.lastBackup=Date.now();saveLocal();checkBackup()}}
+/* ---------- GPS del celular ---------- */
+function gpsNow(){const p=P();if(!p)return;if(!navigator.geolocation){toast('Este navegador no da acceso al GPS.');return}
+  const b=document.getElementById('b-gps');b.disabled=true;b.textContent='Buscando señal GPS…';
+  navigator.geolocation.getCurrentPosition(pos=>{const {latitude:la,longitude:lo,accuracy:ac}=pos.coords;const r=toCTM12(la,lo);
+    p.gps=`${la.toFixed(6)}, ${lo.toFixed(6)}`;p.norte=r.N.toFixed(2);p.este=r.E.toFixed(2);p.precision=Math.round(ac);
+    renderMain();save();toast(`Coordenadas tomadas (precisión ±${Math.round(ac)} m)`)},
+   err=>{b.disabled=false;b.textContent='📍 Tomar coordenadas con el GPS';toast(err.code===1?'Permite el acceso a la ubicación para usar el GPS.':'No se obtuvo señal GPS. Intenta al aire libre.')},
+   {enableHighAccuracy:true,timeout:30000,maximumAge:0})}
+/* ---------- PDF ---------- */
+function pdfG(doc){return{line:(a,b,c,d)=>doc.line(a,b,c,d),dot:(x,y,r)=>doc.circle(x,y,r,'F'),circ:(x,y,r)=>doc.circle(x,y,r,'S')}}
+const ACC=[31,94,87],INK=[30,34,31],GR=[110,116,112],WAT=[47,111,173];
+function header(doc,right,big){const M=12,W=186;const logos=S.pj.logos||[];
+  if(logos.length){let lx=M;for(const lg of logos){let h=13,w=h*lg.w/lg.h;if(w>48){w=48;h=w*lg.h/lg.w}if(lx+w>M+108)break;try{doc.addImage(lg.data,'PNG',lx,10+(13-h)/2,w,h)}catch(e){}lx+=w+5}
+    doc.setTextColor(...ACC);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text((S.pj.empresa||'').slice(0,60),M+W,13.5,{align:'right'});
+    doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text(right,M+W,18.8,{align:'right'});if(big){doc.setFontSize(14);doc.text(big,M+W,24.6,{align:'right'})}
+    doc.setDrawColor(...ACC);doc.setLineWidth(.8);doc.line(M,26.4,M+W,26.4);doc.setTextColor(...INK);return}
+  doc.setFillColor(...ACC);doc.rect(M,10,W,15,'F');doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text((S.pj.empresa||'').slice(0,90),M+3,15.5);
+  doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.text(right,M+3,22);if(big){doc.setFontSize(18);doc.text(big,M+W-3,21.5,{align:'right'})}doc.setTextColor(...INK)}
+function cell(doc,x,y,w,h,lab,val){doc.setDrawColor(...GR);doc.setLineWidth(.2);doc.rect(x,y,w,h);doc.setFont('helvetica','normal');doc.setFontSize(5.8);doc.setTextColor(...GR);doc.text(lab.toUpperCase(),x+1.5,y+3);
+  doc.setTextColor(...INK);doc.setFontSize(7.8);const L=doc.splitTextToSize(String(val||'—'),w-3).slice(0,2);doc.text(L,x+1.5,y+6.6)}
+function patternBox(doc,k,x,y,w,h,s){const m=MATS[k]||MATS.limo;doc.setFillColor(...m.f);doc.rect(x,y,w,h,'F');doc.setDrawColor(60,66,63);doc.setFillColor(60,66,63);doc.setLineWidth(.13);drawPattern(pdfG(doc),k,x,y,w,h,s)}
+function logPage(doc,p){const M=12,W=186;header(doc,'REGISTRO DE PERFORACIÓN',p.codigo||'');const prof=profOf(p);
+  const cw=W/4;const rows=[[['Proyecto',S.pj.nombre],['Cliente',S.pj.cliente],['Ubicación',S.pj.ubicacion],['Fecha',p.fecha]],
+   [['Norte (m)',p.norte],['Este (m)',p.este],['Cota (m.s.n.m.)',p.cota],['Sistema de coordenadas',S.pj.sistema]],
+   [['Profundidad total (m)',prof.toFixed(2)],['Nivel freático (m)',isNaN(n(p.nf))?'No encontrado':n(p.nf).toFixed(2)],['Método',p.metodo],['Responsable',p.responsable||S.pj.responsable]]];
+  rows.forEach((r,i)=>r.forEach((c,j)=>cell(doc,M+j*cw,28+i*10,cw,10,c[0],c[1])));
+  const C={p:M,pW:13,c:M+13,cW:26,u:M+39,uW:14,d:M+53,dW:95,m:M+148,mW:38};const hy=61,y0=69,maxH=184;
+  doc.setFillColor(232,235,230);doc.rect(M,hy,W,8,'F');doc.setDrawColor(...INK);doc.setLineWidth(.3);doc.rect(M,hy,W,8);
+  doc.setFont('helvetica','bold');doc.setFontSize(7);[['Prof. (m)',C.p,C.pW],['Columna',C.c,C.cW],['USCS',C.u,C.uW],['Descripción del material',C.d,C.dW],['Muestras / N SPT',C.m,C.mW]].forEach(([t,x,w])=>doc.text(t,x+w/2,hy+5.2,{align:'center'}));
+  const sc=Math.min(maxH/prof,40);const H=prof*sc;const Y=z=>y0+z*sc;
+  const es=[...p.estratos].sort((a,b)=>n(a.desde)-n(b.desde));
+  for(const e of es){const d=n(e.desde),h=n(e.hasta);if(isNaN(d)||isNaN(h)||h<=d)continue;const y1=Y(d),y2=Y(h);
+    patternBox(doc,e.mat,C.c,y1,C.cW,y2-y1,2.4);doc.setDrawColor(...GR);doc.setLineWidth(.2);doc.line(C.c,y2,M+W,y2);
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...INK);doc.text(e.uscs||'—',C.u+C.uW/2,(y1+y2)/2+1.2,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(7);const L=doc.splitTextToSize(descOf(e),C.dW-4);const maxL=Math.max(1,Math.floor((y2-y1-1.2)/2.9));const sh=L.slice(0,maxL);if(L.length>maxL)sh[maxL-1]=sh[maxL-1].replace(/.{0,2}$/,'…');
+    const ty=(y2-y1)<4?(y1+y2)/2+1:y1+3;doc.text(sh,C.d+2,ty,{lineHeightFactor:1.18})}
+  doc.setDrawColor(...INK);doc.setLineWidth(.3);doc.rect(M,y0,W,H);[C.c,C.u,C.d,C.m].forEach(x=>doc.line(x,y0,x,y0+H));
+  const step=sc>=18?0.5:sc>=8?1:2;doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setLineWidth(.2);
+  for(let z=0;z<=prof+1e-6;z+=step/2){const y=Y(z);const maj=Math.abs(z/step-Math.round(z/step))<1e-6;doc.line(C.c-(maj?2.5:1.3),y,C.c,y);if(maj)doc.text(z.toFixed(step<1?1:0),C.c-3.2,y+1,{align:'right'})}
+  for(const s of p.muestras){const d=n(s.desde);if(isNaN(d))continue;let h=n(s.hasta);if(isNaN(h)||h<=d)h=d+0.15;const y1=Y(d),y2=Math.max(Y(h),y1+1.2),x=C.m+2,w=3.6;
+    doc.setDrawColor(...INK);doc.setFillColor(...INK);doc.setLineWidth(.25);if(s.tipo==='Shelby')doc.rect(x,y1,w,y2-y1,'F');else{doc.rect(x,y1,w,y2-y1);if(s.tipo==='SPT'){doc.line(x,y1,x+w,y2);doc.line(x+w,y1,x,y2)}}
+    doc.setFontSize(6.5);doc.text(`${s.codigo||''} ${s.tipo}${!isNaN(n(s.N))?'  N='+n(s.N):''}  (${d.toFixed(2)}–${h.toFixed(2)})`,x+w+1.5,(y1+y2)/2+1)}
+  const nf=n(p.nf);if(!isNaN(nf)&&nf<=prof){const y=Y(nf),cx=C.c+C.cW/2;doc.setDrawColor(...WAT);doc.setFillColor(...WAT);doc.setLineWidth(.4);doc.setLineDashPattern([1.2,1],0);doc.line(C.c,y,M+W,y);doc.setLineDashPattern([],0);
+    doc.triangle(cx-1.8,y-2.8,cx+1.8,y-2.8,cx,y,'F');doc.setTextColor(...WAT);doc.setFontSize(6.5);doc.text(`NF ${nf.toFixed(2)} m`,C.m-1.5,y-1,{align:'right'});doc.setTextColor(...INK)}
+  if(H<maxH-4){doc.setFontSize(7);doc.setFont('helvetica','italic');doc.text(`Fin de la perforación a ${prof.toFixed(2)} m`,C.d+2,y0+H+4);doc.setFont('helvetica','normal')}
+  // convenciones
+  let ly=257;doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text('CONVENCIONES',M,ly);ly+=2;let lx=M;doc.setFont('helvetica','normal');doc.setFontSize(6.5);
+  const used=[...new Set(es.map(e=>e.mat))];for(const k of used){const tw=doc.getTextWidth(MATS[k].n)+13;if(lx+tw>M+W){lx=M;ly+=6}patternBox(doc,k,lx,ly,9,4.5,2.2);doc.setDrawColor(...GR);doc.rect(lx,ly,9,4.5);doc.text(MATS[k].n,lx+10.5,ly+3.3);lx+=tw}
+  ly+=7;lx=M;doc.setDrawColor(...INK);doc.setFillColor(...INK);doc.setLineWidth(.25);
+  doc.rect(lx,ly,3,4);doc.line(lx,ly,lx+3,ly+4);doc.line(lx+3,ly,lx,ly+4);doc.text('SPT',lx+4.5,ly+3);lx+=16;doc.rect(lx,ly,3,4,'F');doc.text('Shelby (inalterada)',lx+4.5,ly+3);lx+=32;doc.rect(lx,ly,3,4);doc.text('Alterada / bolsa',lx+4.5,ly+3);lx+=30;
+  doc.setFillColor(...WAT);doc.triangle(lx,ly+.5,lx+3.6,ly+.5,lx+1.8,ly+3.8,'F');doc.text('Nivel freático',lx+5,ly+3);
+  if(p.obs){ly+=8;doc.setFont('helvetica','bold');doc.text('Observaciones: ',M,ly);const ow=doc.getTextWidth('Observaciones: ');doc.setFont('helvetica','normal');doc.text(doc.splitTextToSize(p.obs,W-ow).slice(0,2),M+ow,ly)}}
+function coverPage(doc,list){const M=12,W=186;header(doc,'REGISTRO DE PERFORACIONES — RESUMEN');
+  const cw=W/3;[['Proyecto',S.pj.nombre],['Cliente',S.pj.cliente],['Ubicación',S.pj.ubicacion],['Sistema de coordenadas',S.pj.sistema],['Responsable',S.pj.responsable],['Perforaciones',String(list.length)]].forEach((c,i)=>cell(doc,M+(i%3)*cw,28+Math.floor(i/3)*10,cw,10,c[0],c[1]));
+  let y=56;const cols=[['Código',18],['Fecha',20],['Norte (m)',26],['Este (m)',26],['Cota (m)',20],['Prof. (m)',18],['NF (m)',18],['Estratos',18],['Muestras',22]];
+  doc.setFillColor(232,235,230);doc.rect(M,y,W,7,'F');doc.setFont('helvetica','bold');doc.setFontSize(7);let x=M;cols.forEach(([t,w])=>{doc.text(t,x+2,y+4.7);x+=w});y+=7;
+  doc.setFont('helvetica','normal');doc.setDrawColor(...GR);doc.setLineWidth(.15);
+  for(const p of list){if(y>150)break;x=M;const v=[p.codigo,p.fecha,p.norte,p.este,p.cota,profOf(p).toFixed(2),isNaN(n(p.nf))?'N.E.':n(p.nf).toFixed(2),String(p.estratos.length),String(p.muestras.length)];
+    cols.forEach(([t,w],i)=>{doc.text(String(v[i]||'—').slice(0,16),x+2,y+4.6);x+=w});y+=7;doc.line(M,y,M+W,y)}
+  doc.setFontSize(6);doc.setTextColor(...GR);doc.text('N.E.: nivel freático no encontrado',M,y+4);doc.setTextColor(...INK);
+  // perfil comparativo
+  const sel=list.slice(0,12);if(!sel.length)return;y+=12;doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.text('COLUMNAS COMPARADAS (misma escala vertical)',M,y);y+=9;
+  const maxP=Math.max(...sel.map(profOf));const sc=Math.min((270-y-6)/maxP,30);const gap=W/sel.length;const cwid=Math.min(14,gap*.45);
+  doc.setFont('helvetica','normal');doc.setFontSize(6);const st=maxP>12?2:maxP>4?1:0.5;
+  for(let z=0;z<=maxP+1e-6;z+=st){doc.setDrawColor(220,223,218);doc.setLineWidth(.1);doc.line(M+8,y+z*sc,M+W,y+z*sc);doc.text(z.toFixed(st<1?1:0),M+6.5,y+z*sc+1,{align:'right'})}
+  sel.forEach((p,i)=>{const cx=M+10+i*((W-10)/sel.length)+((W-10)/sel.length-cwid)/2;doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(p.codigo||'',cx+cwid/2,y-2,{align:'center'});
+    for(const e of p.estratos){const d=n(e.desde),h=n(e.hasta);if(isNaN(d)||isNaN(h)||h<=d)continue;patternBox(doc,e.mat,cx,y+d*sc,cwid,(h-d)*sc,1.8);doc.setDrawColor(...GR);doc.setLineWidth(.15);doc.line(cx,y+h*sc,cx+cwid,y+h*sc)}
+    doc.setDrawColor(...INK);doc.setLineWidth(.25);doc.rect(cx,y,cwid,profOf(p)*sc);const nf=n(p.nf);if(!isNaN(nf)){doc.setFillColor(...WAT);doc.triangle(cx+cwid+.6,y+nf*sc-1.6,cx+cwid+3.4,y+nf*sc-1.6,cx+cwid+2,y+nf*sc,'F')}})}
+function photoPages(doc,p,imgs){const fs=(p.fotos||[]);if(!fs.length)return;const M=12,W=186,cw=(W-6)/2,ih=64,rowH=ih+13;
+  fs.forEach((fo,i)=>{const k=i%6;if(k===0){doc.addPage();header(doc,'REGISTRO FOTOGRÁFICO',p.codigo||'');}
+    const x=M+(k%2)*(cw+6),y=31+Math.floor(k/2)*(rowH+4);const im=imgs[fo.id];
+    doc.setDrawColor(...GR);doc.setLineWidth(.2);doc.rect(x,y,cw,ih);
+    if(im){let w=cw,h=w*im.h/im.w;if(h>ih){h=ih;w=h*im.w/im.h}try{doc.addImage(im.d,'JPEG',x+(cw-w)/2,y+(ih-h)/2,w,h)}catch(e){}}
+    else{doc.setFontSize(7);doc.setTextColor(...GR);doc.text('Imagen no disponible',x+cw/2,y+ih/2,{align:'center'});doc.setTextColor(...INK)}
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);const lab=`Foto ${i+1}. `;doc.text(lab,x,y+ih+4);const lw=doc.getTextWidth(lab);
+    doc.setFont('helvetica','normal');doc.text(doc.splitTextToSize(fo.cap||`Perforación ${p.codigo||''}`,cw-lw).slice(0,2),x+lw,y+ih+4)})}
+async function exportPdf(list,name,cover){if(!window.jspdf){toast('No se pudo cargar el generador de PDF. Revisa la conexión.');return}
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});let first=true;
+  if(cover){coverPage(doc,list);first=false}
+  const nF=list.reduce((a,p)=>a+(p.fotos||[]).length,0);const imgs={};
+  if(nF){toast(`Preparando ${nF} fotos para el PDF…`);for(const p of list)for(const fo of (p.fotos||[])){try{const c=await shrink(await fotoURL(fo.asset),1200);imgs[fo.id]={d:c.toDataURL('image/jpeg',.8),w:c.width,h:c.height}}catch(e){}}}
+  for(const p of list){if(!first)doc.addPage();first=false;logPage(doc,p);photoPages(doc,p,imgs)}
+  const tot=doc.getNumberOfPages();const hoy=new Date().toLocaleDateString('es-CO');
+  for(let i=1;i<=tot;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(...GR);doc.text(`${S.pj.nombre||''} · generado ${hoy}`.slice(0,110),12,290);doc.text(`Página ${i} de ${tot}`,198,290,{align:'right'})}
+  await saveFile(name,doc.output('blob'),'application/pdf')}
+
+boot();
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body></html>

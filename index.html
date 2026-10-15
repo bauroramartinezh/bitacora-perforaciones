@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bitácora">
+<meta name="author" content="Blanca Martínez">
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -109,6 +110,8 @@ div.f{display:flex;flex-direction:column;gap:6px;min-width:0}
 .ph .x{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff}
 .ph input{border:none;border-top:1px solid var(--line);border-radius:0;font-size:13.5px}
 .bkp{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--panel);border:1px solid var(--ochre);border-left:4px solid var(--ochre);border-radius:8px;padding:10px 12px;font-size:14px}
+.credit{text-align:center;font-size:12.5px;color:var(--muted);padding-block:8px 4px}
+.credit b{font-family:var(--f-display);font-size:14px;letter-spacing:.02em;color:var(--ink)}
 .gpsnote{font-size:12.5px;color:var(--muted)}
 .example{font-family:var(--f-mono);font-size:11px;background:var(--ochre);color:var(--accent-ink);padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em}
 .empty{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:28px 18px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
@@ -150,6 +153,7 @@ div.f{display:flex;flex-direction:column;gap:6px;min-width:0}
   <div class="bkp" id="bkp" hidden><span></span><button class="btn" id="b-bkp2" type="button">Hacer respaldo</button></div>
   <nav class="chips" id="chips" aria-label="Perforaciones"></nav>
   <div id="main"></div>
+  <footer class="credit">Desarrollado por <b>Blanca Martínez</b></footer>
 </div>
 
 <div class="bar"><div class="in">
@@ -508,7 +512,7 @@ async function exportPdf(list,name,cover){if(!window.jspdf){toast('No se pudo ca
   if(nF){toast(`Preparando ${nF} fotos para el PDF…`);for(const p of list)for(const fo of (p.fotos||[])){try{const c=await shrink(await fotoURL(fo.asset),1200);imgs[fo.id]={d:c.toDataURL('image/jpeg',.8),w:c.width,h:c.height}}catch(e){}}}
   for(const p of list){if(!first)doc.addPage();first=false;logPage(doc,p);photoPages(doc,p,imgs)}
   const tot=doc.getNumberOfPages();const hoy=new Date().toLocaleDateString('es-CO');
-  for(let i=1;i<=tot;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(...GR);doc.text(`${S.pj.nombre||''} · generado ${hoy}`.slice(0,110),12,290);doc.text(`Página ${i} de ${tot}`,198,290,{align:'right'})}
+  for(let i=1;i<=tot;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(...GR);doc.text(`${S.pj.nombre||''} · generado ${hoy}`.slice(0,55),12,290);doc.text(`Página ${i} de ${tot}`,198,290,{align:'right'});doc.text('Desarrollado por Blanca Martínez',105,290,{align:'center'})}
   await saveFile(name,doc.output('blob'),'application/pdf')}
 
 boot();
